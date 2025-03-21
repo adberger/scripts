@@ -1,3 +1,6 @@
+If the account in /etc/shadow has an exclamation mark (!) as a first character
+in the password field, then the account is blocked.
+
 diff -ur linux-pam-d5cb4409ab6b04a6ed7c00245e2c9a430f352b16.orig/modules/pam_unix/support.c linux-pam-d5cb4409ab6b04a6ed7c00245e2c9a430f352b16/modules/pam_unix/support.c
 --- linux-pam-d5cb4409ab6b04a6ed7c00245e2c9a430f352b16.orig/modules/pam_unix/support.c	2020-08-18 20:50:27.226355628 +0200
 +++ linux-pam-d5cb4409ab6b04a6ed7c00245e2c9a430f352b16/modules/pam_unix/support.c	2020-08-18 20:51:20.456212931 +0200

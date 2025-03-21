@@ -1,0 +1,4 @@
+cros_post_src_install_compat() {
+	# Flatcar used to build with --enable-vendordir=/usr/lib/pam/
+	dosym ../../../etc/security /usr/lib/pam/security
+}

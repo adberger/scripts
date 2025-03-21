@@ -93,6 +93,10 @@ src_install() {
 	doins Makefile
 	exeinto /usr/share/baselayout
 	doexe dumb-tmpfiles-proc.sh
+
+	# Normally populated by Gentoo's pambase. It's empty in Flatcar, but users
+	# may wish to add configuration here.
+	keepdir /etc/pam.d
 }
 
 pkg_preinst() {
