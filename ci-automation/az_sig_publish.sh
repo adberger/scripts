@@ -1,0 +1,83 @@
+#!/bin/bash
+
+function az_sig_publish() {
+  # Run a subshell, so the traps, environment changes and global
+  # variables are not spilled into the caller.
+  (
+      set -euo pipefail
+
+      _az_sig_publish_impl "${@}"
+  )
+}
+
+# --
+function _az_sig_publish_impl() {
+  local arch="$1"
+  local push_non_nightly_builds="${PUSH_NON_NIGHTLY_BUILDS:-}"
+
+  source sdk_container/.repo/manifests/version.txt
+  local vernum="${FLATCAR_VERSION}"
+
+  source ci-automation/ci_automation_common.sh
+  source ci-automation/gpg_setup.sh
+
+  if [[ "$vernum" != *nightly* && "${push_non_nightly_builds}" != "true" ]]; then
+    echo "INFO: Version '$vernum' is not a nightly build, and PUSH_NON_NIGHTLY_BUILDS is not enabled. Skipping publish step."
+    exit 0
+  fi
+
+  local channel=""
+  local date=""
+  if [[ "$vernum" == *nightly* ]]; then
+    local version nightly date time
+    IFS='-' read -r channel version nightly date time <<< "$vernum"
+    FLATCAR_GALLERY_IMAGE_NAME="flatcar-${channel}-${nightly}-${arch}"
+    FLATCAR_GALLERY_VERSION="${version%.*}.${date}"
+  else
+    source sdk_lib/sdk_container_common.sh
+    channel="$(get_git_channel)"
+    FLATCAR_GALLERY_IMAGE_NAME="flatcar-${channel}-${arch}"
+    date=$(date +'%y%m%d')
+    version="${vernum%%+*}"
+    FLATCAR_GALLERY_VERSION="${version%.*}.${date}"
+  fi
+
+  TMP_DIR=$(mktemp -d /var/tmp/flatcar.XXXXXX)
+  # Cleanup on exit (success or failure)
+  trap 'echo "Cleaning up..."; rm -rf "${TMP_DIR}"' EXIT
+
+  FLATCAR_LOCAL_FILE_URL="https://bincache.flatcar-linux.net/images/amd64/${vernum}/flatcar_production_azure_image.vhd.bz2"
+  FLATCAR_LOCAL_FILE_NAME=$(basename "$FLATCAR_LOCAL_FILE_URL")
+  FLATCAR_LOCAL_FILE_PATH="$TMP_DIR/$FLATCAR_LOCAL_FILE_NAME"
+
+  echo "Downloading ${FLATCAR_LOCAL_FILE_NAME} to ${TMP_DIR}..."
+  curl -L -o "${FLATCAR_LOCAL_FILE_PATH}" "${FLATCAR_LOCAL_FILE_URL}"
+  lbunzip2 "${FLATCAR_LOCAL_FILE_PATH}"
+
+  FLATCAR_LOCAL_FILE_NAME="${FLATCAR_LOCAL_FILE_NAME%.bz2}"
+  FLATCAR_LOCAL_FILE_PATH="$TMP_DIR/$FLATCAR_LOCAL_FILE_NAME"
+
+
+  # -- Clean up --
+  echo "FLATCAR_GALLERY_IMAGE_NAME ${FLATCAR_GALLERY_IMAGE_NAME}"
+  echo "FLATCAR_GALLERY_VERSION ${FLATCAR_GALLERY_VERSION}"
+  echo "Channel ${channel}"
+  export VHD_STORAGE_ACCOUNT_NAME="sayantestsbwesteurope"
+  export VHD_STORAGE_CONTAINER_NAME="vhd"
+  # -- end clean up --
+
+  docker run --pull always --rm --net host \
+    --env VHD_STORAGE_ACCOUNT_NAME="${VHD_STORAGE_ACCOUNT_NAME}" \
+    --env VHD_STORAGE_CONTAINER_NAME="${VHD_STORAGE_CONTAINER_NAME}" \
+    --env FLATCAR_ARCH="${arch}" \
+    --env FLATCAR_CHANNEL="${channel}" \
+    --env FLATCAR_GALLERY_VERSION="${FLATCAR_GALLERY_VERSION}" \
+    --env FLATCAR_GALLERY_IMAGE_NAME="${FLATCAR_GALLERY_IMAGE_NAME}" \
+    --env FLATCAR_LOCAL_FILE_NAME="${FLATCAR_LOCAL_FILE_NAME}" \
+    -v "$PWD":/work \
+    -v "${FLATCAR_LOCAL_FILE_PATH}":/data/"${FLATCAR_LOCAL_FILE_NAME}" \
+    -w /work \
+    mcr.microsoft.com/azure-cli \
+    /work/az_sig_publish
+}
+# --
