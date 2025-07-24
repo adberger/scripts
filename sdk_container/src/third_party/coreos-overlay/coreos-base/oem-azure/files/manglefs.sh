@@ -19,6 +19,14 @@ ln -sf /usr/bin/true "${rootfs}/usr/bin/eject"
 # package creation it needs to be /usr/lib. waagent uses the same function in
 # both cases, so mangle manually.
 mkdir -p "${rootfs}"/usr/lib/systemd/system
+
+# debug
+set -x
+ls -ali  "${rootfs}"
+ls -ali  "${rootfs}"/etc
+ls -ali  "${rootfs}"/etc/systemd
+ls -ali  "${rootfs}"/etc/systemd/system
+
 cp -a "${rootfs}"/{etc,usr/lib}/systemd/system/.
 
 # Remove test stuff from python - it's quite large.
