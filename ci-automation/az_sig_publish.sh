@@ -16,29 +16,27 @@ function _az_sig_publish_impl() {
   local push_non_nightly_builds="${PUSH_NON_NIGHTLY_BUILDS:-}"
 
   source sdk_container/.repo/manifests/version.txt
-  local vernum="${FLATCAR_VERSION}"
+  source sdk_lib/sdk_container_common.sh
+  local vernum="$(get_git_version)"
+  local channel="$(get_git_channel)"
 
   source ci-automation/ci_automation_common.sh
   source ci-automation/gpg_setup.sh
 
-  if [[ "$vernum" != *nightly* && "${push_non_nightly_builds}" != "true" ]]; then
-    echo "INFO: Version '$vernum' is not a nightly build, and PUSH_NON_NIGHTLY_BUILDS is not enabled. Skipping publish step."
+  if { [[ "$vernum" != *"nightly"* ]] || [[ "$channel" != "developer" ]] } && [[ "$push_non_nightly_builds" != "true" ]]; then
+    echo "INFO: Version '$vernum' is not a nightly build, or channel is not developer and PUSH_NON_NIGHTLY_BUILDS is not enabled. Skipping publish step."
     exit 0
   fi
 
-  local channel=""
+  FLATCAR_GALLERY_IMAGE_NAME="flatcar-${channel}-${arch}"
+  version=$(echo "${vernum}" | cut -d '-' -f2)
+
   local date=""
   if [[ "$vernum" == *nightly* ]]; then
-    local version nightly date time
-    IFS='-' read -r channel version nightly date time <<< "$vernum"
-    FLATCAR_GALLERY_IMAGE_NAME="flatcar-${channel}-${nightly}-${arch}"
-    FLATCAR_GALLERY_VERSION="${version%.*}.${date}"
+    date=$(echo "${vernum}" | cut -d '-' -f4)
+    FLATCAR_GALLERY_VERSION="${version%.*}.${date:2}"
   else
-    source sdk_lib/sdk_container_common.sh
-    channel="$(get_git_channel)"
-    FLATCAR_GALLERY_IMAGE_NAME="flatcar-${channel}-${arch}"
     date=$(date +'%y%m%d')
-    version="${vernum%%+*}"
     FLATCAR_GALLERY_VERSION="${version%.*}.${date}"
   fi
 
@@ -46,7 +44,7 @@ function _az_sig_publish_impl() {
   # Cleanup on exit (success or failure)
   trap 'echo "Cleaning up..."; rm -rf "${TMP_DIR}"' EXIT
 
-  FLATCAR_LOCAL_FILE_URL="https://bincache.flatcar-linux.net/images/amd64/${vernum}/flatcar_production_azure_image.vhd.bz2"
+  FLATCAR_LOCAL_FILE_URL="https://bincache.flatcar-linux.net/images/amd64/${FLATCAR_VERSION}/flatcar_production_azure_image.vhd.bz2"
 
   # -- Clean up --
   echo "FLATCAR_GALLERY_IMAGE_NAME ${FLATCAR_GALLERY_IMAGE_NAME}"
