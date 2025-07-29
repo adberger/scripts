@@ -26,7 +26,7 @@ VHD_STORAGE_ACCOUNT_NAME="${VHD_STORAGE_ACCOUNT_NAME:-flatcar}"
 VHD_STORAGE_RESOURCE_GROUP_NAME="${VHD_STORAGE_RESOURCE_GROUP_NAME:-flatcar}"
 VHD_STORAGE_CONTAINER_NAME="${VHD_STORAGE_CONTAINER_NAME:-developer}"
 BLACKLISTED_TARGET_REGIONS="${BLACKLISTED_TARGET_REGIONS:-polandcentral australiacentral2 brazilsoutheast centraluseuap eastus2euap eastusstg francesouth germanynorth jioindiacentral norwaywest southafricawest switzerlandwest uaecentral brazilus southcentralusstg}"
-TARGET_REGIONS="${TARGET_REGIONS:-${AZURE_LOCATION}}"
+TARGET_REGIONS="${TARGET_REGIONS:-}"
 
 function publish-flatcar-sig-image-version-from-vhd() {
   login
@@ -148,7 +148,7 @@ function ensure-resource-group() {
 }
 
 function login() {
-  echo "Authenticating to Azure using service principal"
+  echo "Authenticating to Azure using managed identity"
   AZURE_LOGIN_ERR_FILE=$(mktemp)
   trap 'rm -f "$AZURE_LOGIN_ERR_FILE"' EXIT
 
