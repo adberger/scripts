@@ -17,6 +17,7 @@ FLATCAR_CHANNEL="${FLATCAR_CHANNEL:-developer}"
 FLATCAR_VERSION="${FLATCAR_VERSION:-3374.2.1}"
 FLATCAR_ARCH="${FLATCAR_ARCH:-amd64}"
 FLATCAR_LOCAL_FILE_NAME="${FLATCAR_LOCAL_FILE_NAME:-flatcar_production_azure_image.vhd}"
+FLATCAR_LOCAL_FILE_URL="${FLATCAR_LOCAL_FILE_URL:-}"
 FLATCAR_IMAGE_OFFER="${FLATCAR_IMAGE_OFFER:-${FLATCAR_CHANNEL}}"
 
 FLATCAR_GALLERY_IMAGE_NAME="${FLATCAR_GALLERY_IMAGE_NAME:-"flatcar-${FLATCAR_CHANNEL}-${FLATCAR_ARCH}"}"
@@ -72,19 +73,40 @@ function ensure-vhd-uri-exists() {
     --name "flatcar-linux-${FLATCAR_GALLERY_VERSION}-${FLATCAR_CHANNEL}-${FLATCAR_ARCH}.vhd" \
     --query "exists" -o tsv)
 
-  if [ "${EXISTS}" = "true" ]; then
+  if [[ "${EXISTS}" = "true" ]]; then
     echo "flatcar-linux-${FLATCAR_GALLERY_VERSION}-${FLATCAR_CHANNEL}-${FLATCAR_ARCH} Blob already exists. Skipping upload."
-  else
-    echo "Uploading blob - flatcar-linux-${FLATCAR_GALLERY_VERSION}-${FLATCAR_CHANNEL}-${FLATCAR_ARCH}"
-    if ! az storage blob upload \
-      --account-name "${VHD_STORAGE_ACCOUNT_NAME}" \
-      --auth-mode login \
-      --container "${VHD_STORAGE_CONTAINER_NAME}" \
-      --name "flatcar-linux-${FLATCAR_GALLERY_VERSION}-${FLATCAR_CHANNEL}-${FLATCAR_ARCH}.vhd" \
-      --file "/data/${FLATCAR_LOCAL_FILE_NAME}"; then
-      echo "ERROR: Blob upload failed. Exiting"
-      exit 1
-    fi
+    return 0
+  fi
+
+  if [[ -z "${FLATCAR_LOCAL_FILE_URL:-}" ]]; then
+    echo "FLATCAR_LOCAL_FILE_URL variable is empty. Please set."
+    exit 1
+  fi
+
+  echo "Blob doesn't exist. Downloading flatcar-linux-${FLATCAR_GALLERY_VERSION}-${FLATCAR_CHANNEL}-${FLATCAR_ARCH}"
+  # Download the VHD file (only if blob doesn't exist)
+  echo "Downloading ${FLATCAR_LOCAL_FILE_URL}..."
+  if ! curl -L -o "/data/${FLATCAR_LOCAL_FILE_NAME}.bz2" "${FLATCAR_LOCAL_FILE_URL}"; then
+    echo "ERROR: Download failed. Exiting"
+    exit 1
+  fi
+
+  # Decompress the file
+  echo "Decompressing ${FLATCAR_LOCAL_FILE_NAME}.bz2"
+  if ! bzip2 -d "/data/${FLATCAR_LOCAL_FILE_NAME}.bz2"; then
+    echo "ERROR: Decompression failed. Exiting"
+    exit 1
+  fi
+
+  echo "Uploading blob - flatcar-linux-${FLATCAR_GALLERY_VERSION}-${FLATCAR_CHANNEL}-${FLATCAR_ARCH}"
+  if ! az storage blob upload \
+    --account-name "${VHD_STORAGE_ACCOUNT_NAME}" \
+    --auth-mode login \
+    --container "${VHD_STORAGE_CONTAINER_NAME}" \
+    --name "flatcar-linux-${FLATCAR_GALLERY_VERSION}-${FLATCAR_CHANNEL}-${FLATCAR_ARCH}.vhd" \
+    --file "/data/${FLATCAR_LOCAL_FILE_NAME}"; then
+    echo "ERROR: Blob upload failed. Exiting"
+    exit 1
   fi
 }
 

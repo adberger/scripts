@@ -47,16 +47,6 @@ function _az_sig_publish_impl() {
   trap 'echo "Cleaning up..."; rm -rf "${TMP_DIR}"' EXIT
 
   FLATCAR_LOCAL_FILE_URL="https://bincache.flatcar-linux.net/images/amd64/${vernum}/flatcar_production_azure_image.vhd.bz2"
-  FLATCAR_LOCAL_FILE_NAME=$(basename "$FLATCAR_LOCAL_FILE_URL")
-  FLATCAR_LOCAL_FILE_PATH="$TMP_DIR/$FLATCAR_LOCAL_FILE_NAME"
-
-  echo "Downloading ${FLATCAR_LOCAL_FILE_NAME} to ${TMP_DIR}..."
-  curl -L -o "${FLATCAR_LOCAL_FILE_PATH}" "${FLATCAR_LOCAL_FILE_URL}"
-  lbunzip2 "${FLATCAR_LOCAL_FILE_PATH}"
-
-  FLATCAR_LOCAL_FILE_NAME="${FLATCAR_LOCAL_FILE_NAME%.bz2}"
-  FLATCAR_LOCAL_FILE_PATH="$TMP_DIR/$FLATCAR_LOCAL_FILE_NAME"
-
 
   # -- Clean up --
   echo "FLATCAR_GALLERY_IMAGE_NAME ${FLATCAR_GALLERY_IMAGE_NAME}"
@@ -73,9 +63,9 @@ function _az_sig_publish_impl() {
     --env FLATCAR_CHANNEL="${channel}" \
     --env FLATCAR_GALLERY_VERSION="${FLATCAR_GALLERY_VERSION}" \
     --env FLATCAR_GALLERY_IMAGE_NAME="${FLATCAR_GALLERY_IMAGE_NAME}" \
-    --env FLATCAR_LOCAL_FILE_NAME="${FLATCAR_LOCAL_FILE_NAME}" \
+    --env FLATCAR_LOCAL_FILE_URL="${FLATCAR_LOCAL_FILE_URL}" \
     -v "$PWD":/work \
-    -v "${FLATCAR_LOCAL_FILE_PATH}":/data/"${FLATCAR_LOCAL_FILE_NAME}" \
+    -v "${TMP_DIR}":/data/ \
     -w /work \
     mcr.microsoft.com/azure-cli \
     /work/az_sig_publish
