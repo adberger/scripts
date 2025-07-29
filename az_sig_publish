@@ -32,10 +32,6 @@ TARGET_REGIONS="${TARGET_REGIONS:-}"
 function publish-flatcar-sig-image-version-from-vhd() {
   login
 
-  if sig-image-version-exists; then
-    return
-  fi
-
   get-target-regions
   ensure-vhd-uri-exists
   ensure-resource-group
@@ -45,13 +41,18 @@ function publish-flatcar-sig-image-version-from-vhd() {
   STORAGE_ACCOUNT_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${VHD_STORAGE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${VHD_STORAGE_ACCOUNT_NAME}"
   VHD_URI="https://${VHD_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${VHD_STORAGE_CONTAINER_NAME}/flatcar-linux-${FLATCAR_GALLERY_VERSION}-${FLATCAR_CHANNEL}-${FLATCAR_ARCH}.vhd"
 
-  az sig image-version create \
-    --resource-group "${SIG_RESOURCE_GROUP}" \
-    --gallery-name "${FLATCAR_GALLERY_NAME}" \
-    --gallery-image-definition "${FLATCAR_GALLERY_IMAGE_NAME}" \
-    --gallery-image-version "${FLATCAR_GALLERY_VERSION}" \
-    --os-vhd-storage-account "${STORAGE_ACCOUNT_ID}" \
-    --os-vhd-uri "${VHD_URI}" \
+  if ! sig-image-version-exists; then
+    echo "Creating SIG image version ${FLATCAR_GALLERY_VERSION}"
+    az sig image-version create \
+      --resource-group "${SIG_RESOURCE_GROUP}" \
+      --gallery-name "${FLATCAR_GALLERY_NAME}" \
+      --gallery-image-definition "${FLATCAR_GALLERY_IMAGE_NAME}" \
+      --gallery-image-version "${FLATCAR_GALLERY_VERSION}" \
+      --os-vhd-storage-account "${STORAGE_ACCOUNT_ID}" \
+      --os-vhd-uri "${VHD_URI}"
+  else
+    echo "SIG image version ${FLATCAR_GALLERY_VERSION} already exists, skipping creation"
+  fi
 
   sig-image-version-update-regions
 }
@@ -63,6 +64,7 @@ function get-target-regions() {
 
   echo "Fetching target regions"
   TARGET_REGIONS=$(az account list-locations -o json | jq -r '.[] | select( .metadata.regionType != "Logical" ) | .name' | sort | grep -v -E "(${BLACKLISTED_TARGET_REGIONS// /|})" | tr '\n' ' ')
+  TARGET_REGIONS="westindia westeurope"
 }
 
 function ensure-vhd-uri-exists() {
@@ -134,7 +136,7 @@ function sig-image-version-update-regions() {
     --gallery-name "${FLATCAR_GALLERY_NAME}" \
     --gallery-image-definition "${FLATCAR_GALLERY_IMAGE_NAME}" \
     --gallery-image-version "${FLATCAR_GALLERY_VERSION}" \
-    --target-regions "${TARGET_REGIONS}"
+    --target-regions ${TARGET_REGIONS}
 }
 
 function ensure-image-definition() {
