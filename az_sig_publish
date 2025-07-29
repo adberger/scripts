@@ -64,7 +64,6 @@ function get-target-regions() {
 
   echo "Fetching target regions"
   TARGET_REGIONS=$(az account list-locations -o json | jq -r '.[] | select( .metadata.regionType != "Logical" ) | .name' | sort | grep -v -E "(${BLACKLISTED_TARGET_REGIONS// /|})" | tr '\n' ' ')
-  TARGET_REGIONS="westindia westeurope"
 }
 
 function ensure-vhd-uri-exists() {
